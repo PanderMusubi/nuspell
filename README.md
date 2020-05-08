@@ -278,6 +278,11 @@ To run the tests, run the following command after building:
 
     ctest
 
+## Inspecting suggestions
+
+Add the option `-DBUILD_INSPECT=ON` to the `cmake` command to have `nuspell`
+command-line executable allow inspection of how suggestions were found.
+
 # See also
 
 Full documentation in the [wiki](https://github.com/nuspell/nuspell/wiki),

@@ -509,6 +509,29 @@ ostream& operator<<(ostream& out, const locale& loc)
 
 int main(int argc, char* argv[])
 {
+#ifdef INSPECT
+	cerr << "INFO: Inspection is enabled" << '\n';
+	cerr << "Suggestion labels:" << '\n';
+	cerr << "  {u} uppercase_suggest" << '\n';
+	cerr << "  {r} rep_suggest" << '\n';
+	cerr << "  {m} map_suggest" << '\n';
+	cerr << "  {a} adjacent_swap_suggest" << '\n';
+	cerr << "  {d} distant_swap_suggest" << '\n';
+	cerr << "  {k} keyboard_suggest" << '\n';
+	cerr << "  {e} extra_char_suggest" << '\n';
+	cerr << "  {f} forgotten_char_suggest" << '\n';
+	cerr << "  {v} move_char_suggest" << '\n';
+	cerr << "  {b} bad_char_suggest" << '\n';
+	cerr << "  {o} doubled_two_chars_suggest" << '\n';
+	cerr << "  {w} two_words_suggest" << '\n';
+	cerr << "  {p} phonetic_suggest" << '\n';
+	cerr << "  {N} ngram_suggest" << '\n';
+	cerr << "  {S} suggest_priv: small case compound" << '\n';
+	cerr << "  {P} suggest_priv: camel or pascal case" << '\n';
+	cerr << "  {A} suggest_priv: all capital case" << '\n';
+	cerr << "  {D} suggest_priv: word with dash" << '\n';
+#endif
+
 	// May speed up I/O. After this, don't use C printf, scanf etc.
 	ios_base::sync_with_stdio(false);
 

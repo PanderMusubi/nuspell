@@ -59,6 +59,7 @@ if (BUILD_TESTING)
     endif()
 endif()
 
+option(BUILD_INSPECT "Inspect checking and suggestions." OFF)
 
 #set(pkgconf_public_libs "")
 set(pkgconf_public_requires icu-uc)

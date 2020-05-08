@@ -2064,9 +2064,13 @@ auto Dict_Base::check_compound_with_rules(
 	return {};
 }
 
-auto static insert_sug_first(const wstring& word, List_WStrings& out)
+auto static insert_sug_first(const wstring& word, List_WStrings& out, std::wstring label = L"")
 {
+#ifndef INSPECT
 		out.insert(begin(out), word);
+#else
+		out.insert(begin(out), word + label);
+#endif
 }
 
 auto& operator|=(Dict_Base::High_Quality_Sugs& lhs,
@@ -2099,7 +2103,11 @@ auto Dict_Base::suggest_priv(std::wstring& word, List_WStrings& out) const
 		if (compound_force_uppercase &&
 		    check_compound(word, ALLOW_BAD_FORCEUCASE)) {
 			to_title(word, icu_locale, word);
+#ifndef INSPECT
 			out.push_back(word);
+#else
+			out.push_back(word + L"{S}");
+#endif
 			word = backup;
 			return;
 		}
@@ -2119,24 +2127,24 @@ auto Dict_Base::suggest_priv(std::wstring& word, List_WStrings& out) const
 			auto casing_after_dot = classify_casing(after_dot);
 			if (casing_after_dot == Casing::INIT_CAPITAL) {
 				word.insert(dot_idx + 1, 1, ' ');
-				insert_sug_first(word, out);
+				insert_sug_first(word, out, L"{P}");
 				word.erase(dot_idx + 1, 1);
 			}
 		}
 		if (casing == Casing::PASCAL) {
 			to_lower_char_at(word, 0, icu_locale);
 			if (spell_priv(word))
-				insert_sug_first(word, out);
+				insert_sug_first(word, out, L"{P}");
 			hq_sugs |= suggest_low(word, out);
 		}
 		to_lower(backup, icu_locale, word);
 		if (spell_priv(word))
-			insert_sug_first(word, out);
+			insert_sug_first(word, out, L"{P}");
 		hq_sugs |= suggest_low(word, out);
 		if (casing == Casing::PASCAL) {
 			to_title(backup, icu_locale, word);
 			if (spell_priv(word))
-				insert_sug_first(word, out);
+				insert_sug_first(word, out, L"{P}");
 			hq_sugs |= suggest_low(word, out);
 		}
 		for (auto it = begin(out); it != end(out); ++it) {
@@ -2159,7 +2167,7 @@ auto Dict_Base::suggest_priv(std::wstring& word, List_WStrings& out) const
 	case Casing::ALL_CAPITAL:
 		to_lower(backup, icu_locale, word);
 		if (keepcase_flag != 0 && spell_priv(word))
-			insert_sug_first(word, out);
+			insert_sug_first(word, out, L"{A}");
 		hq_sugs |= suggest_low(word, out);
 		to_title(backup, icu_locale, word);
 		hq_sugs |= suggest_low(word, out);
@@ -2201,7 +2209,11 @@ auto Dict_Base::suggest_priv(std::wstring& word, List_WStrings& out) const
 					auto flg = check_word(word);
 					if (!flg ||
 					    !flg->contains(forbiddenword_flag))
+#ifndef INSPECT
 						out.push_back(word);
+#else
+						out.push_back(word + L"{D}");
+#endif
 				}
 			}
 			if (j == orig_word.npos)
@@ -2280,8 +2292,8 @@ auto Dict_Base::suggest_low(std::wstring& word, List_WStrings& out) const
 	return ret;
 }
 
-auto Dict_Base::add_sug_if_correct(std::wstring& word, List_WStrings& out) const
-    -> bool
+auto Dict_Base::add_sug_if_correct(std::wstring& word, List_WStrings& out,
+                                   std::wstring label = L"") const -> bool
 {
 	auto res = check_word(word, FORBID_BAD_FORCEUCASE, SKIP_HIDDEN_HOMONYM);
 	if (!res)
@@ -2290,7 +2302,11 @@ auto Dict_Base::add_sug_if_correct(std::wstring& word, List_WStrings& out) const
 		return false;
 	if (forbid_warn && res->contains(warn_flag))
 		return false;
+#ifndef INSPECT
 	out.push_back(word);
+#else
+	out.push_back(word + label);
+#endif
 	return true;
 }
 
@@ -2299,7 +2315,7 @@ auto Dict_Base::uppercase_suggest(std::wstring& word, List_WStrings& out) const
 {
 	auto backup = word;
 	to_upper(word, icu_locale, word);
-	add_sug_if_correct(word, out);
+	add_sug_if_correct(word, out, L"{u}");
 	word = backup;
 }
 
@@ -2351,7 +2367,7 @@ auto Dict_Base::rep_suggest(std::wstring& word, List_WStrings& out) const
 auto Dict_Base::try_rep_suggestion(std::wstring& word, List_WStrings& out) const
     -> void
 {
-	if (add_sug_if_correct(word, out))
+	if (add_sug_if_correct(word, out, L"{r}"))
 		return;
 
 	auto i = size_t(0);
@@ -2365,7 +2381,11 @@ auto Dict_Base::try_rep_suggestion(std::wstring& word, List_WStrings& out) const
 		                SKIP_HIDDEN_HOMONYM))
 			return;
 	}
+#ifndef INSPECT
 	out.push_back(word);
+#else
+	out.push_back(word + L"{r}");
+#endif
 }
 
 auto Dict_Base::is_rep_similar(std::wstring& word) const -> bool
@@ -2432,13 +2452,13 @@ auto Dict_Base::map_suggest(std::wstring& word, List_WStrings& out,
 				if (c == e.chars[j])
 					continue;
 				word[i] = c;
-				add_sug_if_correct(word, out);
+				add_sug_if_correct(word, out, L"{m}");
 				map_suggest(word, out, i + 1);
 				word[i] = e.chars[j];
 			}
 			for (auto& r : e.strings) {
 				word.replace(i, 1, r);
-				add_sug_if_correct(word, out);
+				add_sug_if_correct(word, out, L"{m}");
 				map_suggest(word, out, i + r.size());
 				word.replace(i, r.size(), 1, e.chars[j]);
 			}
@@ -2448,7 +2468,7 @@ auto Dict_Base::map_suggest(std::wstring& word, List_WStrings& out,
 					continue;
 				for (auto c : e.chars) {
 					word.replace(i, f.size(), 1, c);
-					add_sug_if_correct(word, out);
+					add_sug_if_correct(word, out, L"{m}");
 					map_suggest(word, out, i + 1);
 					word.replace(i, 1, f);
 				}
@@ -2456,7 +2476,7 @@ auto Dict_Base::map_suggest(std::wstring& word, List_WStrings& out,
 					if (f == r)
 						continue;
 					word.replace(i, f.size(), r);
-					add_sug_if_correct(word, out);
+					add_sug_if_correct(word, out, L"{m}");
 					map_suggest(word, out, i + r.size());
 					word.replace(i, r.size(), f);
 				}
@@ -2473,23 +2493,23 @@ auto Dict_Base::adjacent_swap_suggest(std::wstring& word,
 		return;
 	for (size_t i = 0; i != word.size() - 1; ++i) {
 		swap(word[i], word[i + 1]);
-		add_sug_if_correct(word, out);
+		add_sug_if_correct(word, out, L"{a}");
 		swap(word[i], word[i + 1]);
 	}
 	if (word.size() == 4) {
 		swap(word[0], word[1]);
 		swap(word[2], word[3]);
-		add_sug_if_correct(word, out);
+		add_sug_if_correct(word, out, L"{a}");
 		swap(word[0], word[1]);
 		swap(word[2], word[3]);
 	}
 	else if (word.size() == 5) {
 		swap(word[0], word[1]);
 		swap(word[3], word[4]);
-		add_sug_if_correct(word, out);
+		add_sug_if_correct(word, out, L"{a}");
 		swap(word[0], word[1]); // revert first two
 		swap(word[1], word[2]);
-		add_sug_if_correct(word, out);
+		add_sug_if_correct(word, out, L"{a}");
 		swap(word[1], word[2]);
 		swap(word[3], word[4]);
 	}
@@ -2504,7 +2524,7 @@ auto Dict_Base::distant_swap_suggest(std::wstring& word,
 	for (size_t i = 0; i != word.size() - 2; ++i) {
 		for (size_t j = i + 2; j != word.size(); ++j) {
 			swap(word[i], word[j]);
-			add_sug_if_correct(word, out);
+			add_sug_if_correct(word, out, L"{d}");
 			swap(word[i], word[j]);
 		}
 	}
@@ -2519,18 +2539,18 @@ auto Dict_Base::keyboard_suggest(std::wstring& word, List_WStrings& out) const
 		auto upp_c = u_toupper(c);
 		if (upp_c != c) {
 			word[j] = upp_c;
-			add_sug_if_correct(word, out);
+			add_sug_if_correct(word, out, L"{k}");
 			word[j] = c;
 		}
 		for (auto i = kb.find(c); i != kb.npos; i = kb.find(c, i + 1)) {
 			if (i != 0 && kb[i - 1] != '|') {
 				word[j] = kb[i - 1];
-				add_sug_if_correct(word, out);
+				add_sug_if_correct(word, out, L"{k}");
 				word[j] = c;
 			}
 			if (i + 1 != kb.size() && kb[i + 1] != '|') {
 				word[j] = kb[i + 1];
-				add_sug_if_correct(word, out);
+				add_sug_if_correct(word, out, L"{k}");
 				word[j] = c;
 			}
 		}
@@ -2543,7 +2563,7 @@ auto Dict_Base::extra_char_suggest(std::wstring& word, List_WStrings& out) const
 	for (auto i = word.size() - 1; i != size_t(-1); --i) {
 		auto c = word[i];
 		word.erase(i, 1);
-		add_sug_if_correct(word, out);
+		add_sug_if_correct(word, out, L"{e}");
 		word.insert(i, 1, c);
 	}
 }
@@ -2554,7 +2574,7 @@ auto Dict_Base::forgotten_char_suggest(std::wstring& word,
 	for (auto new_c : try_chars) {
 		for (auto i = word.size(); i != size_t(-1); --i) {
 			word.insert(i, 1, new_c);
-			add_sug_if_correct(word, out);
+			add_sug_if_correct(word, out, L"{f}");
 			word.erase(i, 1);
 		}
 	}
@@ -2571,7 +2591,7 @@ auto Dict_Base::move_char_suggest(std::wstring& word,
 		swap(word[i], word[i + 1]);
 		for (size_t j = i + 1; j != word.size() - 1; ++j) {
 			swap(word[j], word[j + 1]);
-			add_sug_if_correct(word, out);
+			add_sug_if_correct(word, out, L"{v}");
 		}
 		word = backup;
 	}
@@ -2580,7 +2600,7 @@ auto Dict_Base::move_char_suggest(std::wstring& word,
 		swap(word[i], word[i - 1]);
 		for (size_t j = i - 1; j != 0; --j) {
 			swap(word[j], word[j - 1]);
-			add_sug_if_correct(word, out);
+			add_sug_if_correct(word, out, L"{v}");
 		}
 		word = backup;
 	}
@@ -2595,7 +2615,7 @@ auto Dict_Base::bad_char_suggest(std::wstring& word, List_WStrings& out) const
 			if (c == new_c)
 				continue;
 			word[i] = new_c;
-			add_sug_if_correct(word, out);
+			add_sug_if_correct(word, out, L"{b}");
 			word[i] = c;
 		}
 	}
@@ -2614,7 +2634,7 @@ auto Dict_Base::doubled_two_chars_suggest(std::wstring& word,
 		if (w[i] == w[i + 2] && w[i + 1] == w[i + 3] &&
 		    w[i] == w[i + 4]) {
 			word.erase(i + 3, 2);
-			add_sug_if_correct(word, out);
+			add_sug_if_correct(word, out, L"{o}");
 			word.insert(i + 3, two_chars, 2);
 		}
 	}
@@ -2645,13 +2665,21 @@ auto Dict_Base::two_words_suggest(std::wstring& word, List_WStrings& out) const
 		word += ' ';
 		word.append(backup, i + 1, sz2);
 		if (find(begin(out), end(out), word) == end(out))
+#ifndef INSPECT
 			out.push_back(word);
+#else
+			out.push_back(word + L"{w}");
+#endif
 		if (sz1 > 1 && sz2 > 1 && !try_chars.empty() &&
 		    (try_chars.find('a') != try_chars.npos ||
 		     try_chars.find('-') != try_chars.npos)) {
 			word[i + 1] = '-';
 			if (find(begin(out), end(out), word) == end(out))
+#ifndef INSPECT
 				out.push_back(word);
+#else
+				out.push_back(word + L"{w}");
+#endif
 		}
 		word.erase(i + 1);
 	}
@@ -2668,7 +2696,7 @@ auto Dict_Base::phonetic_suggest(std::wstring& word, List_WStrings& out) const
 	if (changed) {
 		transform(begin(word), end(word), begin(word),
 		          [](auto c) { return u_tolower(c); });
-		add_sug_if_correct(word, out);
+		add_sug_if_correct(word, out, L"{p}");
 	}
 	word = backup;
 }
@@ -2961,7 +2989,11 @@ auto Dict_Base::ngram_suggest(std::wstring& word, List_WStrings& out) const
 			else
 				continue;
 		}
+#ifndef INSPECT
 		out.push_back(move(guess_word));
+#else
+		out.push_back(move(guess_word) + L"{N}");
+#endif
 	}
 }
 

@@ -15,6 +15,9 @@ set_target_properties(nuspell PROPERTIES
     SOVERSION ${PROJECT_VERSION_MAJOR}
     WINDOWS_EXPORT_ALL_SYMBOLS ON)
 
+if (BUILD_INSPECT)
+    target_compile_definitions(nuspell PUBLIC INSPECT)
+endif()
 target_compile_features(nuspell PUBLIC cxx_std_17)
 
 target_include_directories(nuspell

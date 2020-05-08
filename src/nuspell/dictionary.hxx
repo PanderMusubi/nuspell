@@ -341,8 +341,8 @@ struct Dict_Base : public Aff_Data {
 	auto suggest_low(std::wstring& word, List_WStrings& out) const
 	    -> High_Quality_Sugs;
 
-	auto add_sug_if_correct(std::wstring& word, List_WStrings& out) const
-	    -> bool;
+	auto add_sug_if_correct(std::wstring& word, List_WStrings& out,
+	                        std::wstring label) const -> bool;
 
 	auto uppercase_suggest(std::wstring& word, List_WStrings& out) const
 	    -> void;
