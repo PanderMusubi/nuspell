@@ -23,6 +23,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <map>
 
 #include <boost/locale.hpp>
 
@@ -196,6 +197,47 @@ auto Args_t::parse_args(int argc, char* argv[]) -> void
 class My_Dictionary : public Dictionary {
 	Hash_Multiset<string> personal;
 
+	// Caching suggest yields an extra speedup of 1.2 to 1.8 times and is
+	// dependent on input text, word segmentation and language. Purging the
+	// cash is costly and should be done as less as possible. Best is to set
+	// maximum cache size in the thousands. However, a maximum cash size of
+	// e.g. 32 still yields in a speedup of 1.1 to 1.2 times.
+	//
+	// Caching for spell does not yield in a significant speedup and is not
+	// trivial when combined with personal dictionary changes and sessions.
+	// Caching of suggestions does not have that challenge.
+	//
+	// Cache could be activated via a command-line option or could be active
+	// by default and switched off via an option. Here, for now, it is simply
+	// always on. Cache logging should be enabled via a verbose option.
+	//
+	// Note that the cache combines well with Unicode segmentation, as that
+	// results in less different suggestions and higher cache hits. More testing
+	// is needed to make further decisions.
+	map<string, pair<int, vector<string>>> suggest_cache;
+	size_t suggest_cache_max = 8192;
+
+	// cache log
+	size_t suggest_cache_max_hit = 0;
+	size_t suggest_cache_hits = 0;
+	size_t suggest_cache_purges = 0;
+	size_t suggests = 0;
+
+	auto purge_suggest_cache()
+	{
+		if (suggest_cache.size() > suggest_cache_max) {
+			auto it = suggest_cache.cbegin();
+			while (it != suggest_cache.cend())
+			{
+				if (it->second.first == 0)
+					suggest_cache.erase(it++);
+				else
+					++it;
+			}
+			// cache log
+			++suggest_cache_purges;
+		}
+	}
       public:
 	auto& operator=(const Dictionary& d)
 	{
@@ -215,6 +257,41 @@ class My_Dictionary : public Dictionary {
 		auto r = personal.equal_range(word);
 		correct = r.first != r.second;
 		return correct;
+	}
+	auto suggest(const string& word, vector<string>& out)
+	{
+		// Overwrites content of provided out.
+		++suggests;
+		purge_suggest_cache();
+		try {
+			auto pair = suggest_cache.at(word);
+			++pair.first;
+			suggest_cache[word] = pair;
+
+			// cache log
+			++suggest_cache_hits;
+			if (suggest_cache_max_hit < pair.first)
+				suggest_cache_max_hit = pair.first;
+
+			out = pair.second;
+			return;
+		}
+		catch (const std::out_of_range& e) {
+		}
+		Dictionary::suggest(word, out);
+		suggest_cache[word].first = 0;
+		suggest_cache[word].second = out;
+		return;
+	}
+	auto cache_log()
+	{
+		cerr << "INFO: Suggest cache"
+		     << " max. size=" << suggest_cache_max
+		     << " size=" << suggest_cache.size()
+		     << " purges=" << suggest_cache_purges
+		     << " hits=" << suggest_cache_hits
+		     << " max. hit=" << suggest_cache_max_hit
+		     << " suggests=" << suggests << "\n";
 	}
 	auto parse_personal_dict(istream& in, const locale& external_locale)
 	{
@@ -342,7 +419,7 @@ auto list_dictionaries(const Finder& f) -> void
 }
 
 auto process_word(
-    Mode mode, const My_Dictionary& dic, const string& line, streampos pos_line,
+    Mode mode, My_Dictionary& dic, const string& line, streampos pos_line,
     string::const_iterator b, string::const_iterator c, bool tellg_supported,
     string& word,
     vector<pair<string::const_iterator, string::const_iterator>>& wrong_words,
@@ -411,7 +488,7 @@ auto process_line(
 }
 
 auto whitespace_segmentation_loop(istream& in, ostream& out,
-                                  const My_Dictionary& dic, Mode mode)
+                                  My_Dictionary& dic, Mode mode)
 {
 	auto line = string();
 	auto word = string();
@@ -451,7 +528,7 @@ auto whitespace_segmentation_loop(istream& in, ostream& out,
 }
 
 auto unicode_segentation_loop(istream& in, ostream& out,
-                              const My_Dictionary& dic, Mode mode)
+                              My_Dictionary& dic, Mode mode)
 {
 	namespace b = boost::locale::boundary;
 	auto line = string();
@@ -602,5 +679,6 @@ int main(int argc, char* argv[])
 			loop_function(in, cout, dic, args.mode);
 		}
 	}
+	dic.cache_log();
 	return 0;
 }
