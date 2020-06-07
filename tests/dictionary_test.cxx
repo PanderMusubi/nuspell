@@ -19,6 +19,7 @@
 #include <nuspell/dictionary.hxx>
 
 #include <catch2/catch.hpp>
+#include <sstream>
 
 using namespace std;
 using namespace nuspell;
@@ -28,11 +29,43 @@ struct Dict_Test : public nuspell::Dict_Base {
 	auto spell_priv(std::wstring&& s) { return Dict_Base::spell_priv(s); }
 };
 
-TEST_CASE("Dictionary::load_from_path", "[dictionary]")
+TEST_CASE("Dictionary::load_from_path empty", "[dictionary]")
 {
 	CHECK_THROWS_AS(Dictionary::load_from_path(""),
 	                Dictionary_Loading_Error);
 }
+
+TEST_CASE("Dictionary::load_from_aff_dic empty", "[dictionary]")
+{
+	auto aff = stringstream("");
+	auto dic = stringstream("");
+
+	CHECK_THROWS_AS(Dictionary::load_from_aff_dic(aff, dic),
+	                Dictionary_Loading_Error);
+}
+
+TEST_CASE("Dictionary::load_from_aff_dic simple", "[dictionary]")
+{
+	auto aff = stringstream("");
+	auto dic = stringstream("");
+
+	aff << "SET UTF-8" << '\n';
+	auto words = {"table", "chair", "book"};
+	dic << words.size() << '\n';
+	for (auto& x : words)
+		dic << x << '\n';
+
+	auto d = Dictionary::load_from_aff_dic(aff, dic);
+
+	auto good = {"table", "book"};
+	for (auto& g : good)
+		CHECK(d.spell(g) == true);
+
+	auto wrong = {"talbe", "chiar"};
+	for (auto& w : wrong)
+		CHECK(d.spell(w) == false);
+}
+
 TEST_CASE("Dictionary::spell_priv simple", "[dictionary]")
 {
 	auto d = Dict_Test();
